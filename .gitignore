@@ -1,0 +1,9 @@
+# Generated reports
+reports/
+
+# External documents for analysis (user-provided, not source code)
+external-docs/*
+!external-docs/.gitkeep
+
+# Processing cache files
+.cache.json
