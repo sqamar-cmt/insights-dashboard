@@ -6,7 +6,10 @@
     },
     "google-workspace": {
       "command": "uvx",
-      "args": ["workspace-mcp"]
+      "args": ["workspace-mcp"],
+      "env": {
+        "WORKSPACE_MCP_PORT": "8020"
+      }
     }
   }
 }

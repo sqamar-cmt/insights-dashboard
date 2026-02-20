@@ -23,31 +23,34 @@ This skill uses a **4-pass file-backed architecture**. All agent outputs persist
 | Pass 3 | Risk Assessment | sonnet | Single sub-agent |
 | Pass 4 | Report Generation | sonnet | Parent context |
 
-## MCP Authentication Check
+## MCP Health Check (Hard Gate)
 
-**Execute this BEFORE any pass.** Do not proceed until authentication is confirmed.
+**This is a hard gate. Execute BEFORE any pass. If any required check fails, STOP the entire pipeline immediately. Do NOT proceed to Pass 1. Do NOT attempt automatic retries.**
 
 ### Atlassian Auth (always required)
 
-1. Attempt a minimal Jira query (e.g., `jira_search` with `jql: "project is not EMPTY"`, `limit: 1`) to verify the MCP connection and auth are valid.
-2. If the query succeeds, record auth as verified.
-3. If the query fails with an authentication error:
-   - Inform the user: "Atlassian MCP authentication failed. Please run /mcp and complete the OAuth flow for the Atlassian server."
-   - Wait for the user to confirm re-authentication.
-   - Retry the test query.
-   - Do NOT proceed to Pass 1 until auth is confirmed.
-4. Record auth status in `run-metadata.json`.
+1. Call `mcp__atlassian__getAccessibleAtlassianResources` (no parameters).
+2. Verify the response contains cloud ID `0f350409-7469-4766-9759-84b56e79f2f5` for `cmtelematics.atlassian.net`.
+3. **If the call succeeds** and the cloud ID is present:
+   - Record auth as verified in `run-metadata.json`.
+4. **If the call fails for ANY reason** (auth error, connection error, timeout, missing cloud ID):
+   - Inform the user: "Atlassian MCP health check failed. Please run `/mcp` and complete the OAuth flow for the Atlassian server, then try again."
+   - Set `run-metadata.json` status to `"error"` with `error_message: "Atlassian MCP health check failed"`.
+   - **STOP. Do NOT proceed.**
 
 ### Google Drive Auth (only if `--drive-email` provided)
 
-1. Attempt a minimal Drive query (e.g., `search_drive_files` with `user_google_email: <drive_email>`, `query: "trashed = false"`, `page_size: 1`) to verify the MCP connection and auth are valid.
-2. If the query succeeds, record Drive auth as verified.
-3. If the query fails with an authentication error:
-   - Inform the user: "Google Workspace MCP authentication failed. Please run /mcp and complete the OAuth flow for the google-workspace server."
-   - Wait for the user to confirm re-authentication.
-   - Retry the test query.
-   - Do NOT proceed to Pass 1 until auth is confirmed.
-4. Record Drive auth status in `run-metadata.json`.
+1. Call `mcp__google-workspace__search_drive_files` with `user_google_email` set to the `--drive-email` value, `query: "trashed = false"`, `page_size: 1`.
+2. **If the call succeeds** (returns results or an empty list):
+   - Record Drive auth as verified in `run-metadata.json`.
+3. **If the call fails for ANY reason** (auth error, connection error, timeout):
+   - Inform the user: "Google Workspace MCP health check failed. Please run `/mcp` and complete the OAuth flow for the google-workspace server, then try again."
+   - Set `run-metadata.json` status to `"error"` with `error_message: "Google Workspace MCP health check failed"`.
+   - **STOP. Do NOT proceed.**
+
+### Both Checks Must Pass
+
+Only after ALL required checks pass (Atlassian always; Google Workspace if `--drive-email` provided), proceed to Run Directory Setup and Pass 1.
 
 ## Run Directory Setup
 

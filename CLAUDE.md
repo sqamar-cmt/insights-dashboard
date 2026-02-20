@@ -39,9 +39,21 @@ Model assignments for agents and passes:
 
 ## MCP Authentication
 
+### Session Startup: Re-authentication Required
+
+**At the start of every new Claude Code session**, run `/mcp` to reconnect and re-authenticate all MCP servers. Previous OAuth tokens may have expired between sessions. Do not assume MCP access carries over from a prior session.
+
+Validation steps after reconnecting:
+1. Run `/mcp` to reconnect both `atlassian` and `google-workspace` servers
+2. Test Atlassian by calling `getAccessibleAtlassianResources` -- confirm the cloud ID `0f350409-7469-4766-9759-84b56e79f2f5` is returned for `cmtelematics.atlassian.net`
+3. If `--drive-email` will be used, test Google Drive by calling `search_drive_files` with a simple query
+4. If any server fails to authenticate, re-run `/mcp` and complete the OAuth flow in the browser
+
 ### Atlassian (required)
 
 This plugin requires the Atlassian MCP server for Jira and Confluence access.
+
+**Cloud ID:** `0f350409-7469-4766-9759-84b56e79f2f5` (site: `cmtelematics.atlassian.net`)
 
 To authenticate:
 1. Run /mcp in a Claude Code session
