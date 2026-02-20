@@ -1,6 +1,6 @@
 # Project Insights Dashboard
 
-A Claude Code plugin that generates executive-level project health reports by synthesizing data from Jira and Confluence. It discovers scope, cross-references planning documents with execution tickets, assesses risk using weighted scoring, and produces a styled HTML report.
+A Claude Code plugin that generates executive-level project health reports by synthesizing data from Jira, Confluence, and Google Drive. It discovers scope, cross-references planning documents with execution tickets, assesses risk using weighted scoring, and produces a styled HTML report.
 
 ## Quick Start
 
@@ -53,11 +53,27 @@ export CONFLUENCE_USERNAME=your.email@example.com
 export CONFLUENCE_API_TOKEN=your_api_token
 ```
 
-### 3. Authenticate
+### 3. Configure Google Drive MCP (Optional)
 
-Start a Claude Code session and run `/mcp` to verify the Atlassian server is connected. If prompted, complete the OAuth flow in your browser.
+To also discover planning documents from Google Drive (PRDs, specs, roadmaps stored as Google Docs), set up the Google Workspace MCP server.
 
-### 4. Generate a Report
+The `.mcp.json` already includes the server configuration. You just need to provide OAuth credentials:
+
+1. Go to https://console.cloud.google.com/ and create a project (or use an existing one)
+2. Enable the **Google Drive API** and **Google Docs API**
+3. Create **OAuth 2.0 credentials** (application type: Desktop)
+4. Set environment variables:
+   ```bash
+   export GOOGLE_OAUTH_CLIENT_ID=your_client_id
+   export GOOGLE_OAUTH_CLIENT_SECRET=your_client_secret
+   ```
+5. On first use, the server will open a browser for OAuth consent. Grant access to Drive and Docs.
+
+### 4. Authenticate
+
+Start a Claude Code session and run `/mcp` to verify the Atlassian server (and optionally, google-workspace server) is connected. If prompted, complete the OAuth flow in your browser.
+
+### 5. Generate a Report
 
 ```
 /project-insights --jira PROJ --spaces TEAMSPACE
@@ -76,13 +92,15 @@ That's it. The skill walks you through the rest interactively.
 ### Full Options
 
 ```
-/project-insights --jira <keys> --spaces <keys> [--search "keywords"] [--target-date YYYY-MM-DD] [--stale-days N]
+/project-insights --jira <keys> --spaces <keys> [--drive-email EMAIL] [--drive-folders IDS] [--search "keywords"] [--target-date YYYY-MM-DD] [--stale-days N]
 ```
 
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `--jira` | Yes | Comma-separated Jira project key(s). Example: `PROJ` or `PROJ,ENG,INFRA` |
 | `--spaces` | Yes | Comma-separated Confluence space key(s). Example: `TEAMSPACE` or `TEAM,DOCS` |
+| `--drive-email` | No | Google account email for Drive access. Enables Google Drive discovery. |
+| `--drive-folders` | No | Comma-separated Google Drive folder IDs to search within. Requires `--drive-email`. |
 | `--search` | No | Free-text keywords to narrow discovery. Example: `"data pipeline migration"` |
 | `--target-date` | No | Overall project deadline in `YYYY-MM-DD` format. Used for time-based risk scoring. |
 | `--stale-days` | No | Days of inactivity before a ticket is flagged as stale. Default: `14`. |
@@ -104,23 +122,34 @@ That's it. The skill walks you through the rest interactively.
 /project-insights --jira ACME --spaces ACMEENG --target-date 2026-06-30 --stale-days 7
 ```
 
+**With Google Drive discovery:**
+```
+/project-insights --jira ACME --spaces ACMEENG --drive-email you@company.com --search "data pipeline"
+```
+
+**With Drive folder scoping:**
+```
+/project-insights --jira ACME --spaces ACMEENG --drive-email you@company.com --drive-folders 1aBcDeFgHiJk,2xYzAbCdEfGh
+```
+
 **Broad discovery (no keyword filter):**
 ```
 /project-insights --jira ACME --spaces ACMEENG
 ```
-This discovers all epics/initiatives in the project and all planning documents (PRDs, RFCs, specs, roadmaps) in the space.
+This discovers all epics/initiatives in the project and all planning documents (PRDs, RFCs, specs, roadmaps) in the space and optionally Drive.
 
 ## What Happens When You Run It
 
 The skill executes a 4-pass pipeline:
 
 ### Pass 1: Discovery
-Two agents run in parallel:
+Up to three agents run in parallel:
 - **Jira agent** queries your project for epics, initiatives, and stories. It auto-discovers issue types (doesn't assume "Epic" exists) and paginates through all results.
 - **Confluence agent** searches your space for planning documents by label, title, and keywords. It extracts dates, deliverables, and Jira key mentions from page content.
+- **Google Drive agent** (if `--drive-email` provided) searches Drive for planning documents (PRDs, specs, roadmaps in Google Docs). It extracts dates, deliverables, Jira key mentions, and Confluence references.
 
 ### Pass 1b: Synthesis
-The system cross-references Jira and Confluence data to produce **scope items** -- logical groupings of related work. A scope item like "Data Pipeline V2 Migration" might link to 1 Confluence PRD, 1 Jira epic, and 13 child stories. The synthesis uses keyword matching, explicit cross-references (Jira keys in Confluence pages), and clustering to build these relationships.
+The system cross-references Jira, Confluence, and Drive data to produce **scope items** -- logical groupings of related work. A scope item like "Data Pipeline V2 Migration" might link to 1 Confluence PRD, 1 Drive spec, 1 Jira epic, and 13 child stories. The synthesis uses keyword matching, explicit cross-references (Jira keys in Confluence/Drive pages), and clustering to build these relationships. When all three sources corroborate a scope item, confidence scores increase.
 
 ### Checkpoint: Your Review
 You're shown the discovered scope items with confidence scores and asked to review:
@@ -164,7 +193,8 @@ reports/2026-02-19-ACME-pipeline/
 ├── raw/
 │   ├── jira-epics.json         # Raw Jira discovery data
 │   ├── jira-stories.json       # Child stories per epic
-│   └── confluence-pages.json   # Confluence planning documents
+│   ├── confluence-pages.json   # Confluence planning documents
+│   └── google-drive-docs.json  # Google Drive planning documents (if --drive-email used)
 ├── synthesized/
 │   ├── scope-items.json        # Initial synthesis output
 │   ├── scope-items-refined.json # After your review
@@ -242,7 +272,7 @@ The risk heuristic weights are defined in two places:
 ### Changing Model Assignments
 
 Model assignments are in `skills/project-insights/SKILL.md` and each agent's frontmatter:
-- Discovery agents use **haiku** (fast, cheap) -- suitable for structured extraction
+- Discovery agents (Jira, Confluence, Drive) use **haiku** (fast, cheap) -- suitable for structured extraction
 - Risk assessment uses **sonnet** -- needs reasoning about scoring
 - Synthesis uses **opus** -- complex cross-referencing and clustering
 
@@ -267,6 +297,18 @@ This is exactly what the checkpoint is for. Remove, merge, split, or add items b
 
 **Report is missing some tickets**
 The Jira agent paginates through results but searches by epic/initiative type first. Flat stories without parent epics may be missed unless they match keyword searches or have scope-related labels (roadmap, milestone, scope).
+
+**"Google Workspace MCP authentication failed"**
+Run `/mcp` in Claude Code and verify the google-workspace server is connected. If not:
+- Ensure `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` environment variables are set
+- Try `uvx workspace-mcp` directly to trigger the OAuth flow
+- Check that Drive API and Docs API are enabled in your Google Cloud project
+
+**Drive finds no documents**
+- Verify the email address matches the Google account that owns or has access to the documents
+- Google Drive search is eventually consistent -- very recently created files may not appear
+- Try using `--drive-folders` to scope the search to specific shared folders
+- Ensure the documents are Google Docs (not uploaded PDFs or Word files, which have limited searchability)
 
 ## Architecture
 

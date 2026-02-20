@@ -1,14 +1,14 @@
 ---
 name: project-insights
 description: >
-  Generate executive-level project insights from Jira and Confluence.
+  Generate executive-level project insights from Jira, Confluence, and Google Drive.
   Trigger phrases: project insights, project health, risk report, scope assessment
 version: 0.1.0
 ---
 
 # Project Insights Skill
 
-Generate executive-level project insights by synthesizing scope from Jira and Confluence, assessing execution risk, and producing a styled HTML report.
+Generate executive-level project insights by synthesizing scope from Jira, Confluence, and Google Drive, assessing execution risk, and producing a styled HTML report.
 
 ## Architecture Overview
 
@@ -16,7 +16,7 @@ This skill uses a **4-pass file-backed architecture**. All agent outputs persist
 
 | Pass | Description | Model | Executor |
 |------|-------------|-------|----------|
-| Pass 1 | Discovery (Jira + Confluence) | haiku | Parallel sub-agents |
+| Pass 1 | Discovery (Jira + Confluence + Drive) | haiku | Parallel sub-agents |
 | Pass 1b | Synthesis | opus | Parent context |
 | Checkpoint | User reviews scope items | — | Interactive |
 | Pass 2 | Refined Discovery (if needed) | haiku | Sub-agents |
@@ -27,6 +27,8 @@ This skill uses a **4-pass file-backed architecture**. All agent outputs persist
 
 **Execute this BEFORE any pass.** Do not proceed until authentication is confirmed.
 
+### Atlassian Auth (always required)
+
 1. Attempt a minimal Jira query (e.g., `jira_search` with `jql: "project is not EMPTY"`, `limit: 1`) to verify the MCP connection and auth are valid.
 2. If the query succeeds, record auth as verified.
 3. If the query fails with an authentication error:
@@ -35,6 +37,17 @@ This skill uses a **4-pass file-backed architecture**. All agent outputs persist
    - Retry the test query.
    - Do NOT proceed to Pass 1 until auth is confirmed.
 4. Record auth status in `run-metadata.json`.
+
+### Google Drive Auth (only if `--drive-email` provided)
+
+1. Attempt a minimal Drive query (e.g., `search_drive_files` with `user_google_email: <drive_email>`, `query: "trashed = false"`, `page_size: 1`) to verify the MCP connection and auth are valid.
+2. If the query succeeds, record Drive auth as verified.
+3. If the query fails with an authentication error:
+   - Inform the user: "Google Workspace MCP authentication failed. Please run /mcp and complete the OAuth flow for the google-workspace server."
+   - Wait for the user to confirm re-authentication.
+   - Retry the test query.
+   - Do NOT proceed to Pass 1 until auth is confirmed.
+4. Record Drive auth status in `run-metadata.json`.
 
 ## Run Directory Setup
 
@@ -51,7 +64,8 @@ reports/YYYY-MM-DD-PROJ-pipeline/
 ├── raw/
 │   ├── jira-epics.json
 │   ├── jira-stories.json
-│   └── confluence-pages.json
+│   ├── confluence-pages.json
+│   └── google-drive-docs.json    (only if --drive-email provided)
 └── synthesized/
     ├── scope-items.json
     ├── scope-items-refined.json
@@ -75,6 +89,8 @@ mkdir -p <run-dir>/synthesized/
   "parameters": {
     "jira_projects": ["PROJ"],
     "confluence_spaces": ["TEAMSPACE"],
+    "drive_email": "user@example.com or null",
+    "drive_folder_ids": ["folder_id_1"] ,
     "search_terms": ["data pipeline"],
     "target_date": "2026-04-15",
     "stale_days": 14
@@ -88,8 +104,15 @@ mkdir -p <run-dir>/synthesized/
     "report_generation": {"status": "pending", "started_at": null, "completed_at": null}
   },
   "mcp_auth": {
-    "verified": true,
-    "verified_at": "<ISO timestamp>"
+    "atlassian": {
+      "verified": true,
+      "verified_at": "<ISO timestamp>"
+    },
+    "google_drive": {
+      "verified": true,
+      "verified_at": "<ISO timestamp>",
+      "note": "Only present if --drive-email provided"
+    }
   }
 }
 ```
@@ -121,20 +144,22 @@ mkdir -p <run-dir>/synthesized/
 
 ## Pass 1: Discovery
 
-**Model:** haiku (for both agents)
+**Model:** haiku (for all discovery agents)
 
-1. Dispatch `jira-discovery` and `confluence-discovery` agents **IN PARALLEL** using the Task tool:
+1. Dispatch discovery agents **IN PARALLEL** using the Task tool. Always dispatch Jira and Confluence agents. If `--drive-email` was provided, also dispatch the Google Drive agent:
    - **Jira agent** (`subagent_type: general-purpose`, `model: haiku`): Pass the project key(s), search keywords, and run directory path. The agent will use `jira_search` and `jira_get_issue` MCP tools to find epics, initiatives, and child stories. It writes to `raw/jira-epics.json` and `raw/jira-stories.json`.
    - **Confluence agent** (`subagent_type: general-purpose`, `model: haiku`): Pass the space key(s), search keywords, and run directory path. The agent will use `confluence_search` and `confluence_get_page` MCP tools to find planning documents. It writes to `raw/confluence-pages.json`.
+   - **Google Drive agent** (`subagent_type: general-purpose`, `model: haiku`): Pass the drive email, optional folder IDs, search keywords, and run directory path. The agent will use `search_drive_files` and `get_doc_content` MCP tools to find planning documents. It writes to `raw/google-drive-docs.json`. **Only dispatch if `--drive-email` was provided.**
    - Each agent returns only a brief status message (1-2 sentences).
 
-2. Wait for both agents to complete.
+2. Wait for all agents to complete.
 
 3. Verify output files exist:
    - `raw/jira-epics.json` must exist and contain valid JSON
    - `raw/jira-stories.json` must exist and contain valid JSON
    - `raw/confluence-pages.json` must exist and contain valid JSON
-   - If any file is missing or invalid, report the error and stop
+   - `raw/google-drive-docs.json` must exist and contain valid JSON **(only if Drive agent was dispatched)**
+   - If any required file is missing or invalid, report the error and stop
 
 4. Update `run-metadata.json`: discovery pass status = `"completed"`
 
@@ -150,12 +175,13 @@ This is the intellectual core of the skill. Follow the 4-phase algorithm describ
    - `raw/jira-epics.json`
    - `raw/jira-stories.json`
    - `raw/confluence-pages.json`
+   - `raw/google-drive-docs.json` (if it exists)
 
 2. Execute the synthesis algorithm:
-   a. **Cross-Reference Extraction:** Build the cross-reference map between Jira keys and Confluence pages. Scan Confluence pages for Jira key mentions. Scan Jira epics for Confluence URLs/titles. Build the epic-to-story hierarchy.
-   b. **Initial Clustering:** Create epic-anchored, confluence-anchored, keyword-overlap, and orphan clusters. Each item belongs to at most one cluster. Priority: epic-anchored > confluence-anchored > keyword-overlap > orphan.
-   c. **Confidence Scoring:** Score each cluster. High (0.8-1.0): explicit cross-references. Medium (0.5-0.79): keyword overlap with 3+ terms. Low (0.2-0.49): single match or orphan.
-   d. **Scope Item Naming:** Name each scope item using the priority hierarchy: Confluence PRD/RFC title > Jira epic summary > synthesized keywords. Names should be 3-8 words, title case, no Jira keys.
+   a. **Cross-Reference Extraction:** Build the cross-reference map between Jira keys, Confluence pages, and Google Drive docs. Scan Confluence pages for Jira key mentions. Scan Drive docs for Jira key mentions and Confluence URL references. Scan Jira epics for Confluence URLs/titles. Build the epic-to-story hierarchy. If Drive data is present, also build Drive↔Jira and Drive↔Confluence cross-reference maps.
+   b. **Initial Clustering:** Create epic-anchored, confluence-anchored, drive-anchored, keyword-overlap, and orphan clusters. Each item belongs to at most one cluster. Priority: epic-anchored > confluence-anchored > drive-anchored > keyword-overlap > orphan.
+   c. **Confidence Scoring:** Score each cluster. High (0.8-1.0): explicit cross-references (boost when 3 sources corroborate). Medium (0.5-0.79): keyword overlap with 3+ terms. Low (0.2-0.49): single match or orphan.
+   d. **Scope Item Naming:** Name each scope item using the priority hierarchy: Confluence PRD/RFC title > Drive doc title > Jira epic summary > synthesized keywords. Names should be 3-8 words, title case, no Jira keys.
 
 3. Write `synthesized/scope-items.json` following the exact schema in `references/synthesis-model.md`.
 
@@ -172,7 +198,7 @@ This is the intellectual core of the skill. Follow the 4-phase algorithm describ
 Read `synthesized/scope-items.json` and present to the user.
 
 **Display format:**
-- List each scope item with: name, confidence score, source count (N Confluence pages, M Jira tickets)
+- List each scope item with: name, confidence score, source count (N Confluence pages, M Jira tickets, P Drive docs)
 - Flag low-confidence items with `[NEEDS REVIEW]`
 - Flag orphans separately under "Unmatched Items"
 - Show target dates if available
@@ -180,17 +206,18 @@ Read `synthesized/scope-items.json` and present to the user.
 **Prompt the user:**
 
 ```
-I found [N] scope items from [X] Jira tickets and [Y] Confluence pages.
+I found [N] scope items from [X] Jira tickets, [Y] Confluence pages, and [Z] Drive docs.
 
 [For each scope item:]
   [confidence emoji] [Name] (confidence: [score])
-     Sources: [M] Jira tickets, [N] Confluence pages
+     Sources: [M] Jira tickets, [N] Confluence pages, [P] Drive docs
      Target date: [date or "none"]
 
 [If orphans exist:]
 Unmatched Items:
   Jira: [list unmatched Jira tickets]
   Confluence: [list unmatched Confluence pages]
+  Drive: [list unmatched Drive docs]
 
 Please review and let me know:
 1. Are any scope items incorrect or should be removed?
@@ -218,15 +245,16 @@ Update `run-metadata.json`: checkpoint pass status = `"completed"`
 
 ## Pass 2: Refined Discovery (if needed)
 
-Only execute if the user added new items, requested deeper search, or provided information that requires additional Jira/Confluence queries.
+Only execute if the user added new items, requested deeper search, or provided information that requires additional Jira/Confluence/Drive queries.
 
 1. For user-added scope items without system links:
    - Search Jira for matching epics/stories by keyword
    - Search Confluence for matching pages by keyword
+   - Search Google Drive for matching docs by keyword (if Drive is enabled)
    - Add any matches to the scope item's sources
 
 2. For deeper search requests:
-   - Run additional JQL/CQL queries as specified by user
+   - Run additional JQL/CQL/Drive queries as specified by user
    - Append new findings to `raw/*.json` files
 
 3. Write `synthesized/scope-items-refined.json`:
@@ -291,7 +319,7 @@ Dispatch a **SINGLE** `risk-assessment` agent (NOT one per scope item).
    - Each scope item as a card with:
      - Progress bar (visual bar with percentage, calculated from ticket counts)
      - Risk badge (On Track / At Risk / Behind) with color coding
-     - Source count (N Confluence pages, M Jira tickets)
+     - Source count (N Confluence pages, M Jira tickets, P Drive docs)
      - Target date if available
    - Border-left color matches risk rating
 
@@ -366,6 +394,7 @@ The risk-assessment agent uses weighted scoring. For quick human reference:
 ## Reference Documents
 
 - **Synthesis algorithm details:** `skills/project-insights/references/synthesis-model.md`
-- **MCP tool names and parameters:** `skills/project-insights/references/mcp-tool-reference.md`
+- **Atlassian MCP tool names and parameters:** `skills/project-insights/references/mcp-tool-reference.md`
+- **Google Drive MCP tool names and parameters:** `skills/project-insights/references/google-drive-mcp-reference.md`
 - **HTML report template:** `skills/project-insights/references/report-template.html`
 - **Example report output:** `skills/project-insights/examples/sample-report.html`
