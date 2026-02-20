@@ -1,0 +1,6 @@
+{
+  "name": "insights-dashboard",
+  "description": "Project insights reporting: synthesize scope from Jira and Confluence, assess execution coverage, and generate executive-level risk reports",
+  "version": "0.1.0",
+  "keywords": ["insights", "reporting", "project-health", "jira", "confluence"]
+}
