@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Insights Report -- ACME Data Platform Modernization</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Roboto+Condensed:wght@700&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
+
+  <style>
+    /* =========================================================
+       BASE / RESET
+       ========================================================= */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* =========================================================
+       TYPOGRAPHY
+       ========================================================= */
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      font-weight: 400;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #111827;
+      background: #F9FAFB;
+    }
+
+    h1, h2, h3, h4, th, .risk-badge {
+      font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
+      font-weight: 700;
+    }
+
+    code, .jira-key, .date, .pct, .url {
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-weight: 400;
+      font-size: 0.9em;
+    }
+
+    /* =========================================================
+       LAYOUT
+       ========================================================= */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    section {
+      margin-bottom: 40px;
+    }
+
+    section h2 {
+      font-size: 1.4em;
+      color: #111827;
+      border-bottom: 2px solid #E5E7EB;
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+    }
+
+    section h3 {
+      font-size: 1.15em;
+      color: #374151;
+      margin-bottom: 12px;
+      margin-top: 24px;
+    }
+
+    p {
+      margin-bottom: 12px;
+    }
+
+    .secondary-text {
+      color: #6B7280;
+      font-size: 0.92em;
+    }
+
+    /* =========================================================
+       RISK BADGES
+       ========================================================= */
+    .risk-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 0.82em;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #fff;
+      vertical-align: middle;
+    }
+
+    .risk-badge.on-track {
+      background-color: #1B8A2D;
+    }
+
+    .risk-badge.at-risk {
+      background-color: #D97706;
+    }
+
+    .risk-badge.behind {
+      background-color: #DC2626;
+    }
+
+    /* =========================================================
+       HEADER
+       ========================================================= */
+    header {
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 3px solid #E5E7EB;
+    }
+
+    header h1 {
+      font-size: 2em;
+      margin-bottom: 8px;
+      color: #111827;
+    }
+
+    header .meta {
+      color: #6B7280;
+      font-size: 0.9em;
+      line-height: 1.7;
+    }
+
+    header .meta span {
+      display: inline-block;
+      margin-right: 18px;
+    }
+
+    header .health-row {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header .health-row .label {
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.95em;
+      color: #374151;
+    }
+
+    /* =========================================================
+       PROGRESS BAR
+       ========================================================= */
+    .progress-bar-wrapper {
+      background: #E5E7EB;
+      border-radius: 4px;
+      height: 20px;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 20px;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-bar.on-track  { background-color: #1B8A2D; }
+    .progress-bar.at-risk   { background-color: #D97706; }
+    .progress-bar.behind    { background-color: #DC2626; }
+
+    .progress-bar-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 20px;
+      line-height: 20px;
+      text-align: center;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.75em;
+      color: #111827;
+      pointer-events: none;
+    }
+
+    /* =========================================================
+       SCOPE ITEM CARDS
+       ========================================================= */
+    .scope-card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+      border-left: 4px solid #E5E7EB;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+
+    .scope-card.on-track  { border-left-color: #1B8A2D; }
+    .scope-card.at-risk   { border-left-color: #D97706; }
+    .scope-card.behind    { border-left-color: #DC2626; }
+
+    .scope-card .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .scope-card .card-title {
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1.1em;
+      color: #111827;
+    }
+
+    .scope-card .card-description {
+      color: #374151;
+      font-size: 0.93em;
+      margin-bottom: 12px;
+    }
+
+    .scope-card .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      margin-top: 12px;
+      font-size: 0.85em;
+      color: #6B7280;
+    }
+
+    .scope-card .card-meta .target-date {
+      font-family: 'Roboto Mono', monospace;
+      color: #374151;
+    }
+
+    .scope-card .progress-section {
+      margin-top: 12px;
+    }
+
+    .scope-card .progress-label {
+      font-size: 0.85em;
+      color: #6B7280;
+      margin-bottom: 4px;
+    }
+
+    /* =========================================================
+       TABLES
+       ========================================================= */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92em;
+      margin-bottom: 16px;
+    }
+
+    thead th {
+      background: #F3F4F6;
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 0.88em;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #374151;
+      border-bottom: 2px solid #E5E7EB;
+    }
+
+    tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #E5E7EB;
+      vertical-align: top;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #F9FAFB;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fff;
+    }
+
+    /* =========================================================
+       ATTENTION ITEMS
+       ========================================================= */
+    .attention-item {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #F3F4F6;
+      font-size: 0.93em;
+    }
+
+    .attention-item:last-child {
+      border-bottom: none;
+    }
+
+    .attention-item .jira-key {
+      flex-shrink: 0;
+      color: #2563EB;
+      font-weight: 500;
+    }
+
+    .attention-item .summary {
+      flex: 1;
+      color: #111827;
+    }
+
+    .attention-item .detail {
+      flex-shrink: 0;
+      color: #6B7280;
+      font-size: 0.9em;
+      text-align: right;
+      min-width: 140px;
+    }
+
+    /* =========================================================
+       RECOMMENDATIONS
+       ========================================================= */
+    .recommendations-list {
+      list-style: none;
+      counter-reset: rec-counter;
+      padding: 0;
+    }
+
+    .recommendations-list li {
+      counter-increment: rec-counter;
+      padding: 10px 0 10px 40px;
+      position: relative;
+      border-bottom: 1px solid #F3F4F6;
+    }
+
+    .recommendations-list li:last-child {
+      border-bottom: none;
+    }
+
+    .recommendations-list li::before {
+      content: counter(rec-counter);
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 28px;
+      height: 28px;
+      background: #E5E7EB;
+      color: #374151;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.85em;
+      line-height: 28px;
+      text-align: center;
+      border-radius: 50%;
+    }
+
+    /* =========================================================
+       FOOTER
+       ========================================================= */
+    footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 2px solid #E5E7EB;
+      text-align: center;
+      color: #9CA3AF;
+      font-size: 0.82em;
+    }
+
+    footer .timestamp {
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    /* =========================================================
+       PRINT STYLES
+       ========================================================= */
+    @media print {
+      body {
+        background: #fff;
+        font-size: 12px;
+      }
+
+      .container {
+        max-width: 100%;
+        padding: 0;
+      }
+
+      .scope-card {
+        box-shadow: none;
+        break-inside: avoid;
+        border: 1px solid #E5E7EB;
+      }
+
+      section {
+        margin-bottom: 24px;
+        break-inside: avoid;
+      }
+
+      header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+      }
+
+      table {
+        font-size: 0.85em;
+      }
+
+      .progress-bar-wrapper {
+        border: 1px solid #D1D5DB;
+      }
+
+      footer {
+        margin-top: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ===========================================================
+       HEADER
+       =========================================================== -->
+  <header>
+    <h1>ACME Data Platform Modernization</h1>
+    <div class="meta">
+      <span>Generated: <span class="date">2026-02-19</span></span>
+      <span>Jira: <code>ACME</code></span>
+      <span>Confluence: <code>ACMEENG</code></span>
+    </div>
+    <div class="health-row">
+      <span class="label">Overall Health:</span>
+      <span class="risk-badge at-risk">At Risk</span>
+    </div>
+  </header>
+
+  <!-- ===========================================================
+       SECTION 1: EXECUTIVE SUMMARY
+       =========================================================== -->
+  <section id="executive-summary">
+    <h2>Executive Summary</h2>
+    <div class="health-row" style="margin-bottom: 14px;">
+      <span class="risk-badge at-risk">At Risk</span>
+    </div>
+    <p>
+      The ACME Data Platform Modernization program is currently <strong>At Risk</strong>. Of six scope items,
+      two are on track, two are at risk, and two are behind schedule. The Data Pipeline V2 Migration and
+      Schema Validation Service are progressing well, but the Customer-Facing Analytics Portal has stalled
+      with three stale tickets untouched for over 20 days and only <span class="pct">17%</span> progress against
+      an <span class="date">2026-03-31</span> deadline. The API Gateway Migration is falling behind with
+      <span class="pct">65%</span> of time elapsed but only <span class="pct">33%</span> of tickets completed.
+      Additionally, the Infrastructure Cost Optimization initiative exists only in Confluence with zero Jira
+      tracking, creating a blind spot for delivery planning. Immediate attention is needed on blocked tickets
+      <span class="jira-key">ACME-205</span> and <span class="jira-key">ACME-315</span>, and the untracked
+      cost optimization scope should be formalized in Jira before it becomes a late-stage risk.
+    </p>
+  </section>
+
+  <!-- ===========================================================
+       SECTION 2: STATED SCOPE
+       =========================================================== -->
+  <section id="stated-scope">
+    <h2>Stated Scope</h2>
+
+    <!-- 1. Data Pipeline V2 Migration -- ON TRACK -->
+    <div class="scope-card on-track">
+      <div class="card-header">
+        <span class="card-title">Data Pipeline V2 Migration</span>
+        <span class="risk-badge on-track">On Track</span>
+      </div>
+      <div class="card-description">
+        Migrate all batch and streaming data pipelines from the legacy V1 framework to the new V2 architecture
+        with improved fault tolerance, schema evolution support, and end-to-end observability.
+      </div>
+      <div class="progress-section">
+        <div class="progress-label">10 / 14 tickets complete &middot; 3 in progress &middot; 1 to do</div>
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar on-track" style="width: 93%;"></div>
+          <div class="progress-bar-text"><span class="pct">93%</span></div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>2 Confluence pages</span>
+        <span>14 Jira tickets</span>
+        <span>Epic: <span class="jira-key">ACME-101</span> + 13 stories</span>
+        <span>Target: <span class="target-date">2026-03-15</span></span>
+        <span class="secondary-text">High confidence (Confluence PRD)</span>
+      </div>
+    </div>
+
+    <!-- 2. Schema Validation Service -- ON TRACK -->
+    <div class="scope-card on-track">
+      <div class="card-header">
+        <span class="card-title">Schema Validation Service</span>
+        <span class="risk-badge on-track">On Track</span>
+      </div>
+      <div class="card-description">
+        Build a centralized schema validation microservice that enforces contract compliance across all
+        data producers and consumers, supporting Avro, Protobuf, and JSON Schema formats.
+      </div>
+      <div class="progress-section">
+        <div class="progress-label">5 / 8 tickets complete &middot; 2 in progress &middot; 1 to do</div>
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar on-track" style="width: 88%;"></div>
+          <div class="progress-bar-text"><span class="pct">88%</span></div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>1 Confluence page</span>
+        <span>8 Jira tickets</span>
+        <span>Epic: <span class="jira-key">ACME-145</span> + 7 stories</span>
+        <span>Target: <span class="target-date">2026-03-31</span></span>
+        <span class="secondary-text">Medium confidence</span>
+      </div>
+      <p class="secondary-text" style="margin-top: 10px; margin-bottom: 0;">
+        1 stale ticket: <span class="jira-key">ACME-167</span> "Add JSON Schema draft-07 support" -- stale 16 days, assigned to Dave Kim
+      </p>
+    </div>
+
+    <!-- 3. Real-Time Monitoring Dashboards -- AT RISK -->
+    <div class="scope-card at-risk">
+      <div class="card-header">
+        <span class="card-title">Real-Time Monitoring Dashboards</span>
+        <span class="risk-badge at-risk">At Risk</span>
+      </div>
+      <div class="card-description">
+        Design and deploy real-time monitoring dashboards using Grafana for all data platform services,
+        including SLO tracking, alerting pipelines, and capacity planning visualizations.
+      </div>
+      <div class="progress-section">
+        <div class="progress-label">3 / 10 tickets complete &middot; 2 in progress &middot; 5 to do</div>
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar at-risk" style="width: 50%;"></div>
+          <div class="progress-bar-text"><span class="pct">50%</span></div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>2 Confluence pages (Monitoring Strategy RFC, Observability RFC)</span>
+        <span>10 Jira tickets</span>
+        <span>Epic: <span class="jira-key">ACME-200</span> + 9 stories</span>
+        <span>Target: <span class="target-date">2026-04-15</span></span>
+        <span class="secondary-text">High confidence</span>
+      </div>
+      <p class="secondary-text" style="margin-top: 10px; margin-bottom: 4px;">
+        2 stale: <span class="jira-key">ACME-210</span> "Configure Grafana data sources" (21 days, Bob Chen),
+        <span class="jira-key">ACME-215</span> "Build SLO tracking panel" (18 days, Bob Chen)
+      </p>
+      <p class="secondary-text" style="margin-bottom: 0;">
+        1 blocked: <span class="jira-key">ACME-205</span> "Integrate alerting pipeline" -- blocked by <span class="jira-key">INFRA-88</span> "Kafka cluster upgrade" (Carol Reyes)
+      </p>
+    </div>
+
+    <!-- 4. API Gateway Migration -- AT RISK -->
+    <div class="scope-card at-risk">
+      <div class="card-header">
+        <span class="card-title">API Gateway Migration</span>
+        <span class="risk-badge at-risk">At Risk</span>
+      </div>
+      <div class="card-description">
+        Migrate all internal and external API routes from the legacy gateway to the new cloud-native API
+        gateway with improved rate limiting, auth middleware, and traffic management capabilities.
+      </div>
+      <div class="progress-section">
+        <div class="progress-label">4 / 12 tickets complete &middot; 3 in progress &middot; 5 to do</div>
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar at-risk" style="width: 58%;"></div>
+          <div class="progress-bar-text"><span class="pct">58%</span></div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>1 Confluence page</span>
+        <span>12 Jira tickets</span>
+        <span>Epic: <span class="jira-key">ACME-300</span> + 11 stories</span>
+        <span>Target: <span class="target-date">2026-04-01</span></span>
+        <span class="secondary-text">High confidence</span>
+      </div>
+      <p class="secondary-text" style="margin-top: 10px; margin-bottom: 4px;">
+        Schedule pressure: <span class="pct">65%</span> of time elapsed but only <span class="pct">33%</span> done tickets
+      </p>
+      <p class="secondary-text" style="margin-bottom: 0;">
+        1 blocked: <span class="jira-key">ACME-315</span> "Migrate auth middleware" -- blocked by <span class="jira-key">ACME-150</span> "Auth service dependency" (unassigned)
+      </p>
+    </div>
+
+    <!-- 5. Customer-Facing Analytics Portal -- BEHIND -->
+    <div class="scope-card behind">
+      <div class="card-header">
+        <span class="card-title">Customer-Facing Analytics Portal</span>
+        <span class="risk-badge behind">Behind</span>
+      </div>
+      <div class="card-description">
+        Build a self-service analytics portal for customers to explore usage metrics, generate custom
+        reports, and export data in CSV and PDF formats with role-based access controls.
+      </div>
+      <div class="progress-section">
+        <div class="progress-label">0 / 6 tickets complete &middot; 1 in progress &middot; 5 to do</div>
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar behind" style="width: 17%;"></div>
+          <div class="progress-bar-text"><span class="pct">17%</span></div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>1 Confluence page</span>
+        <span>6 Jira tickets</span>
+        <span>Epic: <span class="jira-key">ACME-400</span> + 5 stories</span>
+        <span>Target: <span class="target-date">2026-03-31</span></span>
+        <span class="secondary-text">Medium confidence (Confluence)</span>
+      </div>
+      <p class="secondary-text" style="margin-top: 10px; margin-bottom: 4px;">
+        Critically behind: <span class="pct">80%</span> of time elapsed with only <span class="pct">17%</span> progress
+      </p>
+      <p class="secondary-text" style="margin-bottom: 0;">
+        3 stale: <span class="jira-key">ACME-401</span> "Design analytics dashboard UI" (28 days, Priya Sharma),
+        <span class="jira-key">ACME-402</span> "Build data aggregation API" (25 days, unassigned),
+        <span class="jira-key">ACME-405</span> "Implement export functionality" (20 days, Jake Torres)
+      </p>
+    </div>
+
+    <!-- 6. Infrastructure Cost Optimization -- BEHIND -->
+    <div class="scope-card behind">
+      <div class="card-header">
+        <span class="card-title">Infrastructure Cost Optimization</span>
+        <span class="risk-badge behind">Behind</span>
+      </div>
+      <div class="card-description">
+        Reduce cloud infrastructure costs by right-sizing compute instances, implementing auto-scaling
+        policies, and consolidating underutilized resources across the data platform. Discovered from
+        Confluence page "Q1 Cost Reduction Initiative" -- no Jira tracking exists.
+      </div>
+      <div class="progress-section">
+        <div class="progress-label">0 tickets -- untracked scope (Confluence only)</div>
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar behind" style="width: 0%;"></div>
+          <div class="progress-bar-text"><span class="pct">0%</span></div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>1 Confluence page</span>
+        <span>0 Jira tickets</span>
+        <span class="secondary-text">No target date</span>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===========================================================
+       SECTION 3: RISK DASHBOARD
+       =========================================================== -->
+  <section id="risk-dashboard">
+    <h2>Risk Dashboard</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Scope Item</th>
+          <th>Risk Rating</th>
+          <th>Score</th>
+          <th>Progress</th>
+          <th>Stale</th>
+          <th>Blocked</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Behind items first -->
+        <tr>
+          <td>Customer-Facing Analytics Portal</td>
+          <td><span class="risk-badge behind">Behind</span></td>
+          <td class="pct">55</td>
+          <td>
+            <div class="progress-bar-wrapper" style="width: 120px; display: inline-block;">
+              <div class="progress-bar behind" style="width: 17%;"></div>
+              <div class="progress-bar-text"><span class="pct">17%</span></div>
+            </div>
+          </td>
+          <td>3</td>
+          <td>0</td>
+        </tr>
+        <tr>
+          <td>Infrastructure Cost Optimization</td>
+          <td><span class="risk-badge behind">Behind</span></td>
+          <td class="pct">50</td>
+          <td>
+            <div class="progress-bar-wrapper" style="width: 120px; display: inline-block;">
+              <div class="progress-bar behind" style="width: 0%;"></div>
+              <div class="progress-bar-text"><span class="pct">0%</span></div>
+            </div>
+          </td>
+          <td>0</td>
+          <td>0</td>
+        </tr>
+
+        <!-- At Risk items -->
+        <tr>
+          <td>API Gateway Migration</td>
+          <td><span class="risk-badge at-risk">At Risk</span></td>
+          <td class="pct">35</td>
+          <td>
+            <div class="progress-bar-wrapper" style="width: 120px; display: inline-block;">
+              <div class="progress-bar at-risk" style="width: 58%;"></div>
+              <div class="progress-bar-text"><span class="pct">58%</span></div>
+            </div>
+          </td>
+          <td>0</td>
+          <td>1</td>
+        </tr>
+        <tr>
+          <td>Real-Time Monitoring Dashboards</td>
+          <td><span class="risk-badge at-risk">At Risk</span></td>
+          <td class="pct">30</td>
+          <td>
+            <div class="progress-bar-wrapper" style="width: 120px; display: inline-block;">
+              <div class="progress-bar at-risk" style="width: 50%;"></div>
+              <div class="progress-bar-text"><span class="pct">50%</span></div>
+            </div>
+          </td>
+          <td>2</td>
+          <td>1</td>
+        </tr>
+
+        <!-- On Track items -->
+        <tr>
+          <td>Data Pipeline V2 Migration</td>
+          <td><span class="risk-badge on-track">On Track</span></td>
+          <td class="pct">8</td>
+          <td>
+            <div class="progress-bar-wrapper" style="width: 120px; display: inline-block;">
+              <div class="progress-bar on-track" style="width: 93%;"></div>
+              <div class="progress-bar-text"><span class="pct">93%</span></div>
+            </div>
+          </td>
+          <td>0</td>
+          <td>0</td>
+        </tr>
+        <tr>
+          <td>Schema Validation Service</td>
+          <td><span class="risk-badge on-track">On Track</span></td>
+          <td class="pct">5</td>
+          <td>
+            <div class="progress-bar-wrapper" style="width: 120px; display: inline-block;">
+              <div class="progress-bar on-track" style="width: 88%;"></div>
+              <div class="progress-bar-text"><span class="pct">88%</span></div>
+            </div>
+          </td>
+          <td>1</td>
+          <td>0</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===========================================================
+       SECTION 4: ATTENTION REQUIRED
+       =========================================================== -->
+  <section id="attention-required">
+    <h2>Attention Required</h2>
+
+    <!-- Sub-section: Blocked Items -->
+    <h3>Blocked Items</h3>
+    <div class="attention-item">
+      <span class="jira-key">ACME-205</span>
+      <span class="summary">Integrate alerting pipeline</span>
+      <span class="detail">Blocked by <span class="jira-key">INFRA-88</span> &middot; Carol Reyes</span>
+    </div>
+    <div class="attention-item">
+      <span class="jira-key">ACME-315</span>
+      <span class="summary">Migrate auth middleware</span>
+      <span class="detail">Blocked by <span class="jira-key">ACME-150</span> &middot; Unassigned</span>
+    </div>
+
+    <!-- Sub-section: Stale Items -->
+    <h3>Stale Items</h3>
+    <div class="attention-item">
+      <span class="jira-key">ACME-401</span>
+      <span class="summary">Design analytics dashboard UI</span>
+      <span class="detail">Stale 28 days &middot; Priya Sharma</span>
+    </div>
+    <div class="attention-item">
+      <span class="jira-key">ACME-402</span>
+      <span class="summary">Build data aggregation API</span>
+      <span class="detail">Stale 25 days &middot; Unassigned</span>
+    </div>
+    <div class="attention-item">
+      <span class="jira-key">ACME-210</span>
+      <span class="summary">Configure Grafana data sources</span>
+      <span class="detail">Stale 21 days &middot; Bob Chen</span>
+    </div>
+    <div class="attention-item">
+      <span class="jira-key">ACME-405</span>
+      <span class="summary">Implement export functionality</span>
+      <span class="detail">Stale 20 days &middot; Jake Torres</span>
+    </div>
+    <div class="attention-item">
+      <span class="jira-key">ACME-215</span>
+      <span class="summary">Build SLO tracking panel</span>
+      <span class="detail">Stale 18 days &middot; Bob Chen</span>
+    </div>
+    <div class="attention-item">
+      <span class="jira-key">ACME-167</span>
+      <span class="summary">Add JSON Schema draft-07 support</span>
+      <span class="detail">Stale 16 days &middot; Dave Kim</span>
+    </div>
+
+    <!-- Sub-section: Untracked Scope -->
+    <h3>Untracked Scope</h3>
+    <div class="attention-item">
+      <span class="jira-key">&mdash;</span>
+      <span class="summary">Infrastructure Cost Optimization -- referenced in Confluence page "Q1 Cost Reduction Initiative" but has zero Jira tickets for tracking</span>
+      <span class="detail">No tickets</span>
+    </div>
+
+  </section>
+
+  <!-- ===========================================================
+       SECTION 5: KEY PEOPLE
+       =========================================================== -->
+  <section id="key-people">
+    <h2>Key People</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Risk Tickets</th>
+          <th>Stale</th>
+          <th>Blocked</th>
+          <th>Scope Items</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Bob Chen</td>
+          <td>2</td>
+          <td>2</td>
+          <td>0</td>
+          <td>Real-Time Monitoring Dashboards</td>
+        </tr>
+        <tr>
+          <td>Carol Reyes</td>
+          <td>1</td>
+          <td>0</td>
+          <td>1</td>
+          <td>Real-Time Monitoring Dashboards</td>
+        </tr>
+        <tr>
+          <td>Priya Sharma</td>
+          <td>1</td>
+          <td>1</td>
+          <td>0</td>
+          <td>Customer-Facing Analytics Portal</td>
+        </tr>
+        <tr>
+          <td>Jake Torres</td>
+          <td>1</td>
+          <td>1</td>
+          <td>0</td>
+          <td>Customer-Facing Analytics Portal</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===========================================================
+       SECTION 6: RECOMMENDATIONS
+       =========================================================== -->
+  <section id="recommendations">
+    <h2>Recommendations</h2>
+    <ol class="recommendations-list">
+      <li>Assign an owner to <span class="jira-key">ACME-315</span> (API Gateway auth middleware migration). This ticket is currently blocked with no assignee, meaning no one is actively working to resolve the <span class="jira-key">ACME-150</span> dependency.</li>
+
+      <li>Unblock <span class="jira-key">ACME-205</span> by escalating <span class="jira-key">INFRA-88</span> (Kafka cluster upgrade) with the infrastructure team. The alerting pipeline integration is a critical dependency for the Real-Time Monitoring Dashboards workstream.</li>
+
+      <li>Create Jira tracking for "Infrastructure Cost Optimization." This initiative is currently documented only in Confluence ("Q1 Cost Reduction Initiative") with zero tickets, making it invisible to sprint planning and delivery tracking.</li>
+
+      <li>Review stale analytics portal tickets with Priya Sharma and Jake Torres. Three tickets (<span class="jira-key">ACME-401</span>, <span class="jira-key">ACME-402</span>, <span class="jira-key">ACME-405</span>) have been untouched for 20+ days, and the portal is critically behind at <span class="pct">17%</span> progress with <span class="pct">80%</span> of time elapsed.</li>
+
+      <li>Reassess the <span class="date">2026-04-01</span> target date for API Gateway Migration. With <span class="pct">65%</span> of the timeline elapsed and only <span class="pct">33%</span> of tickets completed, the current trajectory will not meet the deadline without scope reduction or additional resources.</li>
+    </ol>
+  </section>
+
+  <!-- ===========================================================
+       FOOTER
+       =========================================================== -->
+  <footer>
+    <p>Generated by <strong>Project Insights</strong></p>
+    <p class="timestamp">2026-02-19T09:15:00Z</p>
+  </footer>
+
+</div>
+</body>
+</html>
