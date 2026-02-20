@@ -1,6 +1,6 @@
 ---
-description: Generate executive-level project insights from Jira, Confluence, and Google Drive
-argument-hint: --jira PROJECT_KEY --spaces SPACE_KEY [--drive-email EMAIL] [--drive-folders IDS] [--search "keywords"] [--target-date YYYY-MM-DD] [--stale-days N]
+description: Generate executive-level project insights from Jira, Confluence, and local documents
+argument-hint: --jira PROJECT_KEY --spaces SPACE_KEY [--local-docs SUBFOLDER] [--reprocess-docs] [--search "keywords"] [--target-date YYYY-MM-DD] [--stale-days N]
 ---
 
 You are generating a project insights report. Use the project-insights skill for full guidance.
@@ -8,15 +8,13 @@ You are generating a project insights report. Use the project-insights skill for
 Parse the user's arguments:
 - `--jira` (required): Comma-separated Jira project key(s)
 - `--spaces` (required): Comma-separated Confluence space key(s)
-- `--drive-email` (optional): Google account email for Drive access. Enables Google Drive discovery.
-- `--drive-folders` (optional): Comma-separated Google Drive folder IDs to search within. Requires `--drive-email`.
+- `--local-docs` (optional): Subfolder name under `external-docs/`. Enables local document discovery. Files (.docx, .pdf, .md, .txt) in this directory are scanned for planning content.
+- `--reprocess-docs` (optional): Force re-extraction of all local docs, ignoring the processing cache.
 - `--search` (optional): Free-text search keywords
 - `--target-date` (optional): User-supplied deadline in YYYY-MM-DD format
 - `--stale-days` (optional, default 14): Days of inactivity before flagging as stale
 
 If required arguments are missing, ask the user for them before proceeding.
-
-If `--drive-folders` is provided without `--drive-email`, ask the user for their Google account email.
 
 ## MCP Health Check (mandatory — run before anything else)
 
@@ -32,16 +30,6 @@ Call `mcp__atlassian__getAccessibleAtlassianResources` (no parameters). This mus
 
   Do NOT proceed to the skill. Do NOT attempt retries.
 
-### 2. Google Workspace MCP (only if `--drive-email` was provided)
+### 2. All checks passed
 
-Call `mcp__google-workspace__search_drive_files` with `user_google_email` set to the `--drive-email` value, `query: "trashed = false"`, and `page_size: 1`.
-
-- **If the call succeeds** (returns results or an empty list): Google Workspace MCP is healthy. Continue.
-- **If the call fails or times out**: STOP. Tell the user:
-  > Google Workspace MCP health check failed. Please run `/mcp`, complete the OAuth flow for the google-workspace server, and try again.
-
-  Do NOT proceed to the skill. Do NOT attempt retries.
-
-### 3. All checks passed
-
-Only after all required MCP health checks pass, proceed to follow the project-insights skill's 4-pass process exactly.
+Only after the Atlassian MCP health check passes, proceed to follow the project-insights skill's 4-pass process exactly.
